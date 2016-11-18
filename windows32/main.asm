@@ -39,9 +39,9 @@ _MainProc PROC
 
 	push ebp				; save ebp to avoid windows32 bug
 
-	lea ebx, replaceString
-	push eax
-	call stringLength
+	lea ebx, inputSentence
+	push ebx
+	call wordLength
 	pop ebx
 
 	pop ebp					; restore ebp to avoid windows32 bug
@@ -52,7 +52,7 @@ _MainProc ENDP
 
 ; stringLength(stringAddr)
 ; returns the length of a null terminated string
-stringLength PROC
+wordLength PROC
 	
 	; set wordStart to stringAddr
 	; set wordEnd to stringAddr
@@ -72,13 +72,15 @@ stringLength PROC
 
 	mov ebx, DWORD PTR [ebp + 8]	; move stringAddr into wordStart
 	mov ecx, ebx					; wordEnd = wordStart
-whileNotNull:						
+whileNotWordEnd:						
 	cmp BYTE PTR[ecx], 0			; wordEnd == NULL?
-	je endWhileNotNull				; if so, end the while loop
+	je endWhileNotWordEnd			; if so, end the while loop
+	cmp BYTE PTR[ecx], ' '			; wordEnd == ' '?
+	je endWhileNotWordEnd			; if so, end the while loop
 
 	inc ecx							; if not, increment wordEnd
-	jmp whileNotNull				; and repeat
-endWhileNotNull:
+	jmp whileNotWordEnd				; and repeat
+endWhileNotWordEnd:
 	
 	sub ecx, ebx					; stringLength = wordEnd - wordStart
 	
@@ -89,7 +91,7 @@ endWhileNotNull:
 	pop ebx
 	pop ebp
 	ret
-stringLength ENDP
+wordLength ENDP
 
 
 END   ; end of source code

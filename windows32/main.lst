@@ -1,4 +1,4 @@
-Microsoft (R) Macro Assembler Version 11.00.61030.0	    11/17/16 17:35:05
+Microsoft (R) Macro Assembler Version 11.00.61030.0	    11/17/16 17:50:54
 main.asm						     Page 1 - 1
 
 
@@ -53,22 +53,20 @@ main.asm						     Page 1 - 1
 
  00000000  55				push ebp				; save ebp to avoid windows32 bug
 
- 00000001  8D 05 00000018 R		lea eax, replaceString
- 00000007  50				push eax
- 00000008  90				nop
- 00000009  E8 00000009			call stringLength
- 0000000E  90				nop
- 0000000F  58				pop eax
+ 00000001  8D 1D 00000000 R		lea ebx, inputSentence
+ 00000007  53				push ebx
+ 00000008  E8 00000008			call wordLength
+ 0000000D  5B				pop ebx
 
- 00000010  5D				pop ebp					; restore ebp to avoid windows32 bug
+ 0000000E  5D				pop ebp					; restore ebp to avoid windows32 bug
 
- 00000011  B8 00000000			mov     eax, 0  ; exit with return code 0
- 00000016  C3				ret
- 00000017			_MainProc ENDP
+ 0000000F  B8 00000000			mov     eax, 0  ; exit with return code 0
+ 00000014  C3				ret
+ 00000015			_MainProc ENDP
 
 				; stringLength(stringAddr)
 				; returns the length of a null terminated string
- 00000017			stringLength PROC
+ 00000015			wordLength PROC
 					
 					; set wordStart to stringAddr
 					; set wordEnd to stringAddr
@@ -80,36 +78,38 @@ main.asm						     Page 1 - 1
 					; ebx = wordStart
 					; ecx = wordEnd
 
- 00000017  55				push ebp						; save registers we're going to use
- 00000018  8B EC			mov ebp, esp					; copy stack index
- 0000001A  53				push ebx
- 0000001B  51				push ecx
- 0000001C  9C				pushfd							; save flag register
+ 00000015  55				push ebp						; save registers we're going to use
+ 00000016  8B EC			mov ebp, esp					; copy stack index
+ 00000018  53				push ebx
+ 00000019  51				push ecx
+ 0000001A  9C				pushfd							; save flag register
 
- 0000001D  8B 5D 08			mov ebx, DWORD PTR [ebp + 8]	; move stringAddr into wordStart
- 00000020  8B CB			mov ecx, ebx					; wordEnd = wordStart
- 00000022			whileNotNull:						
- 00000022  80 39 00			cmp BYTE PTR[ecx], 0			; wordEnd == NULL?
- 00000025  74 03			je endWhileNotNull				; if so, end the while loop
+ 0000001B  8B 5D 08			mov ebx, DWORD PTR [ebp + 8]	; move stringAddr into wordStart
+ 0000001E  8B CB			mov ecx, ebx					; wordEnd = wordStart
+ 00000020			whileNotWordEnd:						
+ 00000020  80 39 00			cmp BYTE PTR[ecx], 0			; wordEnd == NULL?
+ 00000023  74 08			je endWhileNotWordEnd			; if so, end the while loop
+ 00000025  80 39 20			cmp BYTE PTR[ecx], ' '			; wordEnd == ' '?
+ 00000028  74 03			je endWhileNotWordEnd			; if so, end the while loop
 
- 00000027  41				inc ecx							; if not, increment wordEnd
- 00000028  EB F8			jmp whileNotNull				; and repeat
- 0000002A			endWhileNotNull:
+ 0000002A  41				inc ecx							; if not, increment wordEnd
+ 0000002B  EB F3			jmp whileNotWordEnd				; and repeat
+ 0000002D			endWhileNotWordEnd:
 					
- 0000002A  2B CB			sub ecx, ebx					; stringLength = wordEnd - wordStart
+ 0000002D  2B CB			sub ecx, ebx					; stringLength = wordEnd - wordStart
 					
- 0000002C  8B C1			mov eax, ecx					; move stringLength into EAX for return value
+ 0000002F  8B C1			mov eax, ecx					; move stringLength into EAX for return value
 
- 0000002E  9D				popfd							; restore flag register
- 0000002F  59				pop ecx							; restore registers we used
- 00000030  5B				pop ebx
- 00000031  5D				pop ebp
- 00000032  C3				ret
- 00000033			stringLength ENDP
+ 00000031  9D				popfd							; restore flag register
+ 00000032  59				pop ecx							; restore registers we used
+ 00000033  5B				pop ebx
+ 00000034  5D				pop ebp
+ 00000035  C3				ret
+ 00000036			wordLength ENDP
 
 
 				END   ; end of source code
-Microsoft (R) Macro Assembler Version 11.00.61030.0	    11/17/16 17:35:05
+Microsoft (R) Macro Assembler Version 11.00.61030.0	    11/17/16 17:50:54
 main.asm						     Symbols 2 - 1
 
 
@@ -134,17 +134,17 @@ Segments and Groups:
 FLAT . . . . . . . . . . . . . .	GROUP
 STACK  . . . . . . . . . . . . .	32 Bit	 00001000 Para	  Stack	  'STACK'	 
 _DATA  . . . . . . . . . . . . .	32 Bit	 00000082 Para	  Public  'DATA'	
-_TEXT  . . . . . . . . . . . . .	32 Bit	 00000033 Para	  Public  'CODE'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 00000036 Para	  Public  'CODE'	
 
 
 Procedures, parameters, and locals:
 
                 N a m e                 Type     Value    Attr
 
-_MainProc  . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000017 Public
-stringLength . . . . . . . . . .	P Near	 00000017 _TEXT	Length= 0000001C Public
-  whileNotNull . . . . . . . . .	L Near	 00000022 _TEXT	
-  endWhileNotNull  . . . . . . .	L Near	 0000002A _TEXT	
+_MainProc  . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000015 Public
+wordLength . . . . . . . . . . .	P Near	 00000015 _TEXT	Length= 00000021 Public
+  whileNotWordEnd  . . . . . . .	L Near	 00000020 _TEXT	
+  endWhileNotWordEnd . . . . . .	L Near	 0000002D _TEXT	
 
 
 Symbols:
