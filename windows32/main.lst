@@ -1,0 +1,175 @@
+Microsoft (R) Macro Assembler Version 11.00.61030.0	    11/17/16 17:35:05
+main.asm						     Page 1 - 1
+
+
+				; General comments
+				; Author:  
+				; Date: 
+				; This is the Visual Studio 2012/Visual C++ Express Edition 2012 version   
+
+				; Preprocessor directives
+				.586		; use the 80586 set of instructions
+				.MODEL FLAT	; use the flat memory model (only 32 bit addresses, no segment:offset)
+
+				; External source files
+				INCLUDE io.h   ; header file for input/output
+			      C ; IO.H -- header file for I/O macros (listing suppressed)
+			      C .NOLIST      ; turn off listing
+			      C .LIST        ; begin listing
+			      C 
+
+				; Stack configuration
+				.STACK 4096	   ; allocate 4096 bytes for the stack
+
+				; Named memory allocation and initialization
+ 00000000			.DATA
+					
+ 00000000 6D 79 20 64 6F		inputSentence	BYTE "my don dont do that", 0
+	   6E 20 64 6F 6E
+	   74 20 64 6F 20
+	   74 68 61 74 00
+
+ 00000014 64 6F 6E 00			searchString	BYTE "don", 0
+
+ 00000018 70 6C 61 74 65		replaceString	BYTE "plate", 0
+	   00
+					
+ 0000001E  00000064 [			outputSentence	BYTE 100 DUP (0)
+	    00
+	   ]
+
+				; procedure definitions
+ 00000000			.CODE
+ 00000000			_MainProc PROC
+					
+					; while (not at null)
+					;	if (current word == search word)
+					;		copy replacement word into new sentence
+					;	else
+					;		copy current word into new sentence
+					;	end if
+					;	go to next word
+					; end while
+
+ 00000000  55				push ebp				; save ebp to avoid windows32 bug
+
+ 00000001  8D 05 00000018 R		lea eax, replaceString
+ 00000007  50				push eax
+ 00000008  90				nop
+ 00000009  E8 00000009			call stringLength
+ 0000000E  90				nop
+ 0000000F  58				pop eax
+
+ 00000010  5D				pop ebp					; restore ebp to avoid windows32 bug
+
+ 00000011  B8 00000000			mov     eax, 0  ; exit with return code 0
+ 00000016  C3				ret
+ 00000017			_MainProc ENDP
+
+				; stringLength(stringAddr)
+				; returns the length of a null terminated string
+ 00000017			stringLength PROC
+					
+					; set wordStart to stringAddr
+					; set wordEnd to stringAddr
+					; while (byte at wordEnd != 0)
+					;	increment wordEnd
+					; end while
+					; return (wordEnd - wordStart)
+					
+					; ebx = wordStart
+					; ecx = wordEnd
+
+ 00000017  55				push ebp						; save registers we're going to use
+ 00000018  8B EC			mov ebp, esp					; copy stack index
+ 0000001A  53				push ebx
+ 0000001B  51				push ecx
+ 0000001C  9C				pushfd							; save flag register
+
+ 0000001D  8B 5D 08			mov ebx, DWORD PTR [ebp + 8]	; move stringAddr into wordStart
+ 00000020  8B CB			mov ecx, ebx					; wordEnd = wordStart
+ 00000022			whileNotNull:						
+ 00000022  80 39 00			cmp BYTE PTR[ecx], 0			; wordEnd == NULL?
+ 00000025  74 03			je endWhileNotNull				; if so, end the while loop
+
+ 00000027  41				inc ecx							; if not, increment wordEnd
+ 00000028  EB F8			jmp whileNotNull				; and repeat
+ 0000002A			endWhileNotNull:
+					
+ 0000002A  2B CB			sub ecx, ebx					; stringLength = wordEnd - wordStart
+					
+ 0000002C  8B C1			mov eax, ecx					; move stringLength into EAX for return value
+
+ 0000002E  9D				popfd							; restore flag register
+ 0000002F  59				pop ecx							; restore registers we used
+ 00000030  5B				pop ebx
+ 00000031  5D				pop ebp
+ 00000032  C3				ret
+ 00000033			stringLength ENDP
+
+
+				END   ; end of source code
+Microsoft (R) Macro Assembler Version 11.00.61030.0	    11/17/16 17:35:05
+main.asm						     Symbols 2 - 1
+
+
+
+
+Macros:
+
+                N a m e                 Type
+
+atod . . . . . . . . . . . . . .	Proc
+atow . . . . . . . . . . . . . .	Proc
+dtoa . . . . . . . . . . . . . .	Proc
+input  . . . . . . . . . . . . .	Proc
+output . . . . . . . . . . . . .	Proc
+wtoa . . . . . . . . . . . . . .	Proc
+
+
+Segments and Groups:
+
+                N a m e                 Size     Length   Align   Combine Class
+
+FLAT . . . . . . . . . . . . . .	GROUP
+STACK  . . . . . . . . . . . . .	32 Bit	 00001000 Para	  Stack	  'STACK'	 
+_DATA  . . . . . . . . . . . . .	32 Bit	 00000082 Para	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 00000033 Para	  Public  'CODE'	
+
+
+Procedures, parameters, and locals:
+
+                N a m e                 Type     Value    Attr
+
+_MainProc  . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000017 Public
+stringLength . . . . . . . . . .	P Near	 00000017 _TEXT	Length= 0000001C Public
+  whileNotNull . . . . . . . . .	L Near	 00000022 _TEXT	
+  endWhileNotNull  . . . . . . .	L Near	 0000002A _TEXT	
+
+
+Symbols:
+
+                N a m e                 Type     Value    Attr
+
+@CodeSize  . . . . . . . . . . .	Number	 00000000h   
+@DataSize  . . . . . . . . . . .	Number	 00000000h   
+@Interface . . . . . . . . . . .	Number	 00000000h   
+@Model . . . . . . . . . . . . .	Number	 00000007h   
+@code  . . . . . . . . . . . . .	Text   	 _TEXT
+@data  . . . . . . . . . . . . .	Text   	 FLAT
+@fardata?  . . . . . . . . . . .	Text   	 FLAT
+@fardata . . . . . . . . . . . .	Text   	 FLAT
+@stack . . . . . . . . . . . . .	Text   	 FLAT
+_getInput  . . . . . . . . . . .	L Near	 00000000 FLAT	External
+_showOutput  . . . . . . . . . .	L Near	 00000000 FLAT	External
+atodproc . . . . . . . . . . . .	L Near	 00000000 FLAT	External
+atowproc . . . . . . . . . . . .	L Near	 00000000 FLAT	External
+dtoaproc . . . . . . . . . . . .	L Near	 00000000 FLAT	External
+inputSentence  . . . . . . . . .	Byte	 00000000 _DATA	
+outputSentence . . . . . . . . .	Byte	 0000001E _DATA	
+replaceString  . . . . . . . . .	Byte	 00000018 _DATA	
+searchString . . . . . . . . . .	Byte	 00000014 _DATA	
+wtoaproc . . . . . . . . . . . .	L Near	 00000000 FLAT	External
+
+	   0 Warnings
+	   0 Errors
