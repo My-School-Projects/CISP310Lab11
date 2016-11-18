@@ -16,22 +16,34 @@ INCLUDE io.h   ; header file for input/output
 ; Named memory allocation and initialization
 .DATA
 	
-	inputSentence	BYTE "my don dont do that", 0, 0	; this is sort of a hack,
-														; but the first null is always skipped,
-														; so we need an extra one to meet the exit condition
-														; for the whileNotAtNull loop.
-
-	searchString	BYTE "don", 0
-
-	replaceString	BYTE "plate", 0
-	
-	outputSentence	BYTE 100 DUP (0)	; More than 100 characters seems like unreasonable input.
+	inputSentence	BYTE 100 DUP (0)	; More than 100 characters seems like unreasonable input.
 										; We're not writing a novel here.
+										; Limit input and output sentences to 100 characters	
+	outputSentence	BYTE 100 DUP (0)
+
+	searchString	BYTE 20 DUP (0)		; Limit search and replace strings to 20 characters
+
+	replaceString	BYTE 20 DUP (0)
+
+	promptInputSentence BYTE "Please input a string to perform search and replace on. Max 100 characters.", 0
+
+	promptSearchString	BYTE "Please input a word to search for. Max 20 characters please.", 0
+
+	promptReplaceString BYTE "Please input a word to replace them with. Max 20 characters please.", 0
+
+	outputSentenceLabel BYTE "Here is the resulting sentence.", 0
+
 
 ; procedure definitions
 .CODE
 _MainProc PROC
 	
+	; Get inputs!
+
+	input promptInputSentence, inputSentence, 100	; Prompt user for a sentence, max 100 characters
+	input promptSearchString, searchString, 20		; Prompt user for a search word, max 20 characters
+	input promptReplaceString, replaceString, 20	; Prompt user for a replacement word, max 20 characters
+
 	; while (not at null)
 	;	if (current word == search word)
 	;		copy replacement word into new sentence
@@ -157,6 +169,10 @@ endWordsAreTheSame:
 
 	jmp whileNotAtNull				; loop back
 endWhileNotAtNull:
+	
+	; Display results!
+
+	output outputSentenceLabel, outputSentence
 
 	pop ebp							; restore ebp to avoid windows32 bug
 
