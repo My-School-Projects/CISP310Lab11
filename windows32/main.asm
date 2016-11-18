@@ -63,10 +63,9 @@ whileNotAtNull:
 	mov esi, ebx					; set source index to inputSentenceIndex
 	lea edi, searchString			; set destination index to first element of searchString
 	
-	; repe cmps means:
-	; while
-	;	if ECX = 0, then break loop
-	;	compare [ESI] and [EDI],
+	; repe cmpsb means:
+	; while (ECX != 0)
+	;	compare [ESI] and [EDI]
 	;	increment ESI and EDI
 	;	decrement ECX
 	;	if [ESI] and [EDI] are the same, then break loop
@@ -79,20 +78,54 @@ whileNotAtNull:
 	cmp ecx, 0						; is ECX 0?
 	je wordsAreTheSame				; if (ECX == 0), then the words are the same
 
-	; TODO if the words are not the same, copy the current word from inputSentence to outputSentence
+wordsAreNotTheSame:
+	; if the words are not the same, copy the current word from inputSentence to outputSentence
+
+	push eax						; parameter 3: length of word to copy
+	push edx						; parameter 2: outputSentenceIndex (destination)
+	push ebx						; parameter 1: inputSentenceIndex (source)
+
+	call stringCopy					; copy current word into outputSentence
+
+	pop ebx
+	pop edx
+	pop eax
 
 	jmp endWordsAreTheSame
 wordsAreTheSame:
 	
-	; TODO if words are the same, copy replaceString into outputSentence
+	; if words are the same, copy replaceString into outputSentence
+
+	; but first, we need to get the length of replaceString
+
+	; TODO: this stuff push eax						; save value of currentWordLength
+
+	lea ebp, replaceString			; get address of replaceString
+	push ebp
+	call wordLength					; EAX = wordLength(replaceString)
+	pop ebp
+
+	push eax						; parameter 3: length of word to copy
+	push edx						; parameter 2: outputSentenceIndex (destination)
+	
+	push ebp						; parameter 1: address of replaceString (source)
+
+	call stringCopy					; copy replaceString into outputSentence
+
+	pop ebp							; pop parameters
+	pop edx
+	pop eax
 
 endWordsAreTheSame:
 	add ebx, eax					; inputSentenceIndex += currentWordLength
 	inc ebx							; skip over space
+	
+	add edx, eax					; outputSentenceIndex += currentWordLength
+	mov BYTE PTR[edx], ' '			; insert ' ' into outputSentence
+	inc edx							; skip over space
 
 	jmp whileNotAtNull				; loop back
 endWhileNotAtNull:
-	
 
 	pop ebp							; restore ebp to avoid windows32 bug
 
@@ -100,7 +133,8 @@ endWhileNotAtNull:
 	ret
 _MainProc ENDP
 
-; stringLength(stringAddr)
+
+; wordLength(stringAddr)
 ; returns the length of a null terminated string
 wordLength PROC
 	
@@ -143,5 +177,38 @@ endWhileNotWordEnd:
 	ret
 wordLength ENDP
 
+
+; stringCopy(sourceStringAddr, destStringAddr, lengthToCopy)
+; copies a string from once place to another
+stringCopy PROC
+	push ebp						; save registers we're going to use
+	mov ebp, esp					; copy stack pointer
+	push esi
+	push edi
+	push ecx
+	pushfd							; save flags register
+
+	mov esi, DWORD PTR[ebp + 8]		; ESI = sourceStringAddr (1st parameter)
+	mov edi, DWORD PTR[ebp + 12]	; EDI = destStringAddr (2nd parameter)
+	mov ecx, DWORD PTR[ebp + 16]	; ECX = lengthToCopy (3rd parameter)
+
+	cld								; set scan direction: left-to-right
+
+	; rep movsb means:
+	; while (ECX != 0)
+	;	copy byte at [ESI] to byte at [EDI]
+	;	increment ESI and EDI
+	;	decrement ECX
+	; end while
+
+	rep movsb						; in short, copy lengthToCopy bytes from source string to dest. string
+
+	popfd							; restore flags register
+	pop ecx							; restore registers we used
+	pop edi
+	pop esi
+	pop ebp
+	ret
+stringCopy ENDP
 
 END   ; end of source code
