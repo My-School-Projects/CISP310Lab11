@@ -22,7 +22,8 @@ INCLUDE io.h   ; header file for input/output
 
 	replaceString	BYTE "plate", 0
 	
-	outputSentence	BYTE 100 DUP (0)
+	outputSentence	BYTE 100 DUP (0)	; More than 100 characters seems like unreasonable input.
+										; We're not writing a novel here.
 
 ; procedure definitions
 .CODE
@@ -37,14 +38,63 @@ _MainProc PROC
 	;	go to next word
 	; end while
 
-	push ebp				; save ebp to avoid windows32 bug
+	push ebp						; save ebp to avoid windows32 bug
 
-	lea ebx, inputSentence
-	push ebx
-	call wordLength
-	pop ebx
+	; eax = currentWordLength
+	; ebx = inputSentenceIndex
+	; ecx = repeatCount
+	; edx = outputSentenceIndex
 
-	pop ebp					; restore ebp to avoid windows32 bug
+	lea ebx, inputSentence			; inputSentenceIndex = first element of inputSentence
+	lea edx, outputSentence			; outputSentenceIndex = first element of outputSentence
+
+whileNotAtNull:
+	cmp BYTE PTR[ebx], 0			; if (inputSentenceIndex == NULL)
+	je endWhileNotAtNull			; then break the loop
+
+	; get length of current word
+	push ebx						; push the start of the current word as parameter: inputSentenceAddr
+	call wordLength					; currentWordLength (EAX) = wordLength(inputSentenceAddr)
+	pop ebx							; clear parameter off the stack
+
+	; compare current word to searchString
+	mov ecx, eax					; repeatCount = currentWordLength
+	cld								; set scan direction: left-to-right
+	mov esi, ebx					; set source index to inputSentenceIndex
+	lea edi, searchString			; set destination index to first element of searchString
+	
+	; repe cmps means:
+	; while
+	;	if ECX = 0, then break loop
+	;	compare [ESI] and [EDI],
+	;	increment ESI and EDI
+	;	decrement ECX
+	;	if [ESI] and [EDI] are the same, then break loop
+	; end while
+	repe cmpsb						; in summary, this will compare the searchString to the current word
+									; in inputSentence (starting at inputSentenceIndex).
+									; if ECX == 0, that means that the loop did not break early,
+									; which means that the two words are the same.
+	
+	cmp ecx, 0						; is ECX 0?
+	je wordsAreTheSame				; if (ECX == 0), then the words are the same
+
+	; TODO if the words are not the same, copy the current word from inputSentence to outputSentence
+
+	jmp endWordsAreTheSame
+wordsAreTheSame:
+	
+	; TODO if words are the same, copy replaceString into outputSentence
+
+endWordsAreTheSame:
+	add ebx, eax					; inputSentenceIndex += currentWordLength
+	inc ebx							; skip over space
+
+	jmp whileNotAtNull				; loop back
+endWhileNotAtNull:
+	
+
+	pop ebp							; restore ebp to avoid windows32 bug
 
 	mov     eax, 0  ; exit with return code 0
 	ret

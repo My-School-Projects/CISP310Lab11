@@ -1,4 +1,4 @@
-Microsoft (R) Macro Assembler Version 11.00.61030.0	    11/17/16 17:50:54
+Microsoft (R) Macro Assembler Version 11.00.61030.0	    11/17/16 18:50:13
 main.asm						     Page 1 - 1
 
 
@@ -34,9 +34,10 @@ main.asm						     Page 1 - 1
  00000018 70 6C 61 74 65		replaceString	BYTE "plate", 0
 	   00
 					
- 0000001E  00000064 [			outputSentence	BYTE 100 DUP (0)
+ 0000001E  00000064 [			outputSentence	BYTE 100 DUP (0)	; More than 100 characters seems like unreasonable input.
 	    00
 	   ]
+														; We're not writing a novel here.
 
 				; procedure definitions
  00000000			.CODE
@@ -51,22 +52,71 @@ main.asm						     Page 1 - 1
 					;	go to next word
 					; end while
 
- 00000000  55				push ebp				; save ebp to avoid windows32 bug
+ 00000000  55				push ebp						; save ebp to avoid windows32 bug
 
- 00000001  8D 1D 00000000 R		lea ebx, inputSentence
- 00000007  53				push ebx
- 00000008  E8 00000008			call wordLength
- 0000000D  5B				pop ebx
+					; eax = currentWordLength
+					; ebx = inputSentenceIndex
+					; ecx = repeatCount
+					; edx = outputSentenceIndex
 
- 0000000E  5D				pop ebp					; restore ebp to avoid windows32 bug
+ 00000001  8D 1D 00000000 R		lea ebx, inputSentence			; inputSentenceIndex = first element of inputSentence
+ 00000007  8D 15 0000001E R		lea edx, outputSentence			; outputSentenceIndex = first element of outputSentence
 
- 0000000F  B8 00000000			mov     eax, 0  ; exit with return code 0
- 00000014  C3				ret
- 00000015			_MainProc ENDP
+ 0000000D			whileNotAtNull:
+ 0000000D  80 3B 00			cmp BYTE PTR[ebx], 0			; if (inputSentenceIndex == NULL)
+ 00000010  74 20			je endWhileNotAtNull			; then break the loop
+
+					; get length of current word
+ 00000012  53				push ebx						; push the start of the current word as parameter: inputSentenceAddr
+ 00000013  E8 00000021			call wordLength					; currentWordLength (EAX) = wordLength(inputSentenceAddr)
+ 00000018  5B				pop ebx							; clear parameter off the stack
+
+					; compare current word to searchString
+ 00000019  8B C8			mov ecx, eax					; repeatCount = currentWordLength
+ 0000001B  FC				cld								; set scan direction: left-to-right
+ 0000001C  8B F3			mov esi, ebx					; set source index to inputSentenceIndex
+ 0000001E  8D 3D 00000014 R		lea edi, searchString			; set destination index to first element of searchString
+					
+					; repe cmps means:
+					; while
+					;	if ECX = 0, then break loop
+					;	compare [ESI] and [EDI],
+					;	increment ESI and EDI
+					;	decrement ECX
+					;	if [ESI] and [EDI] are the same, then break loop
+					; end while
+ 00000024  F3/ A6			repe cmpsb						; in summary, this will compare the searchString to the current word
+													; in inputSentence (starting at inputSentenceIndex).
+													; if ECX == 0, that means that the loop did not break early,
+													; which means that the two words are the same.
+					
+ 00000026  83 F9 00			cmp ecx, 0						; is ECX 0?
+ 00000029  74 02			je wordsAreTheSame				; if (ECX == 0), then the words are the same
+
+					; if the words are not the same, copy the current word from inputSentence to outputSentence
+
+
+ 0000002B  EB 00			jmp endWordsAreTheSame
+ 0000002D			wordsAreTheSame:
+					
+					
+ 0000002D			endWordsAreTheSame:
+ 0000002D  03 D8			add ebx, eax					; inputSentenceIndex += currentWordLength
+ 0000002F  43				inc ebx							; skip over space
+
+ 00000030  EB DB			jmp whileNotAtNull				; loop back
+ 00000032			endWhileNotAtNull:
+					
+
+ 00000032  5D				pop ebp							; restore ebp to avoid windows32 bug
+
+ 00000033  B8 00000000			mov     eax, 0  ; exit with return code 0
+ 00000038  C3				ret
+ 00000039			_MainProc ENDP
 
 				; stringLength(stringAddr)
 				; returns the length of a null terminated string
- 00000015			wordLength PROC
+ 00000039			wordLength PROC
 					
 					; set wordStart to stringAddr
 					; set wordEnd to stringAddr
@@ -78,38 +128,38 @@ main.asm						     Page 1 - 1
 					; ebx = wordStart
 					; ecx = wordEnd
 
- 00000015  55				push ebp						; save registers we're going to use
- 00000016  8B EC			mov ebp, esp					; copy stack index
- 00000018  53				push ebx
- 00000019  51				push ecx
- 0000001A  9C				pushfd							; save flag register
+ 00000039  55				push ebp						; save registers we're going to use
+ 0000003A  8B EC			mov ebp, esp					; copy stack index
+ 0000003C  53				push ebx
+ 0000003D  51				push ecx
+ 0000003E  9C				pushfd							; save flag register
 
- 0000001B  8B 5D 08			mov ebx, DWORD PTR [ebp + 8]	; move stringAddr into wordStart
- 0000001E  8B CB			mov ecx, ebx					; wordEnd = wordStart
- 00000020			whileNotWordEnd:						
- 00000020  80 39 00			cmp BYTE PTR[ecx], 0			; wordEnd == NULL?
- 00000023  74 08			je endWhileNotWordEnd			; if so, end the while loop
- 00000025  80 39 20			cmp BYTE PTR[ecx], ' '			; wordEnd == ' '?
- 00000028  74 03			je endWhileNotWordEnd			; if so, end the while loop
+ 0000003F  8B 5D 08			mov ebx, DWORD PTR [ebp + 8]	; move stringAddr into wordStart
+ 00000042  8B CB			mov ecx, ebx					; wordEnd = wordStart
+ 00000044			whileNotWordEnd:						
+ 00000044  80 39 00			cmp BYTE PTR[ecx], 0			; wordEnd == NULL?
+ 00000047  74 08			je endWhileNotWordEnd			; if so, end the while loop
+ 00000049  80 39 20			cmp BYTE PTR[ecx], ' '			; wordEnd == ' '?
+ 0000004C  74 03			je endWhileNotWordEnd			; if so, end the while loop
 
- 0000002A  41				inc ecx							; if not, increment wordEnd
- 0000002B  EB F3			jmp whileNotWordEnd				; and repeat
- 0000002D			endWhileNotWordEnd:
+ 0000004E  41				inc ecx							; if not, increment wordEnd
+ 0000004F  EB F3			jmp whileNotWordEnd				; and repeat
+ 00000051			endWhileNotWordEnd:
 					
- 0000002D  2B CB			sub ecx, ebx					; stringLength = wordEnd - wordStart
+ 00000051  2B CB			sub ecx, ebx					; stringLength = wordEnd - wordStart
 					
- 0000002F  8B C1			mov eax, ecx					; move stringLength into EAX for return value
+ 00000053  8B C1			mov eax, ecx					; move stringLength into EAX for return value
 
- 00000031  9D				popfd							; restore flag register
- 00000032  59				pop ecx							; restore registers we used
- 00000033  5B				pop ebx
- 00000034  5D				pop ebp
- 00000035  C3				ret
- 00000036			wordLength ENDP
+ 00000055  9D				popfd							; restore flag register
+ 00000056  59				pop ecx							; restore registers we used
+ 00000057  5B				pop ebx
+ 00000058  5D				pop ebp
+ 00000059  C3				ret
+ 0000005A			wordLength ENDP
 
 
 				END   ; end of source code
-Microsoft (R) Macro Assembler Version 11.00.61030.0	    11/17/16 17:50:54
+Microsoft (R) Macro Assembler Version 11.00.61030.0	    11/17/16 18:50:13
 main.asm						     Symbols 2 - 1
 
 
@@ -134,17 +184,21 @@ Segments and Groups:
 FLAT . . . . . . . . . . . . . .	GROUP
 STACK  . . . . . . . . . . . . .	32 Bit	 00001000 Para	  Stack	  'STACK'	 
 _DATA  . . . . . . . . . . . . .	32 Bit	 00000082 Para	  Public  'DATA'	
-_TEXT  . . . . . . . . . . . . .	32 Bit	 00000036 Para	  Public  'CODE'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 0000005A Para	  Public  'CODE'	
 
 
 Procedures, parameters, and locals:
 
                 N a m e                 Type     Value    Attr
 
-_MainProc  . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000015 Public
-wordLength . . . . . . . . . . .	P Near	 00000015 _TEXT	Length= 00000021 Public
-  whileNotWordEnd  . . . . . . .	L Near	 00000020 _TEXT	
-  endWhileNotWordEnd . . . . . .	L Near	 0000002D _TEXT	
+_MainProc  . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000039 Public
+  whileNotAtNull . . . . . . . .	L Near	 0000000D _TEXT	
+  wordsAreTheSame  . . . . . . .	L Near	 0000002D _TEXT	
+  endWordsAreTheSame . . . . . .	L Near	 0000002D _TEXT	
+  endWhileNotAtNull  . . . . . .	L Near	 00000032 _TEXT	
+wordLength . . . . . . . . . . .	P Near	 00000039 _TEXT	Length= 00000021 Public
+  whileNotWordEnd  . . . . . . .	L Near	 00000044 _TEXT	
+  endWhileNotWordEnd . . . . . .	L Near	 00000051 _TEXT	
 
 
 Symbols:
