@@ -1,4 +1,4 @@
-Microsoft (R) Macro Assembler Version 11.00.61030.0	    11/17/16 19:31:20
+Microsoft (R) Macro Assembler Version 11.00.50727.1	    11/17/16 20:21:30
 main.asm						     Page 1 - 1
 
 
@@ -24,17 +24,21 @@ main.asm						     Page 1 - 1
 				; Named memory allocation and initialization
  00000000			.DATA
 					
- 00000000 6D 79 20 64 6F		inputSentence	BYTE "my don dont do that", 0
+ 00000000 6D 79 20 64 6F		inputSentence	BYTE "my don dont do that", 0, 0	; this is sort of a hack,
 	   6E 20 64 6F 6E
 	   74 20 64 6F 20
 	   74 68 61 74 00
+	   00
+																		; but the first null is always skipped,
+																		; so we need an extra one to meet the exit condition
+																		; for the whileNotAtNull loop.
 
- 00000014 64 6F 6E 00			searchString	BYTE "don", 0
+ 00000015 64 6F 6E 00			searchString	BYTE "don", 0
 
- 00000018 70 6C 61 74 65		replaceString	BYTE "plate", 0
+ 00000019 70 6C 61 74 65		replaceString	BYTE "plate", 0
 	   00
 					
- 0000001E  00000064 [			outputSentence	BYTE 100 DUP (0)	; More than 100 characters seems like unreasonable input.
+ 0000001F  00000064 [			outputSentence	BYTE 100 DUP (0)	; More than 100 characters seems like unreasonable input.
 	    00
 	   ]
 														; We're not writing a novel here.
@@ -60,22 +64,36 @@ main.asm						     Page 1 - 1
 					; edx = outputSentenceIndex
 
  00000001  8D 1D 00000000 R		lea ebx, inputSentence			; inputSentenceIndex = first element of inputSentence
- 00000007  8D 15 0000001E R		lea edx, outputSentence			; outputSentenceIndex = first element of outputSentence
+ 00000007  8D 15 0000001F R		lea edx, outputSentence			; outputSentenceIndex = first element of outputSentence
 
  0000000D			whileNotAtNull:
  0000000D  80 3B 00			cmp BYTE PTR[ebx], 0			; if (inputSentenceIndex == NULL)
- 00000010  74 49			je endWhileNotAtNull			; then break the loop
+ 00000010  74 66			je endWhileNotAtNull			; then break the loop
+
+					; if the lengths of searchString and the current word are different, they are not equal.
+ 00000012  52				push edx						; we need an extra variable. save EDX for later
+ 00000013  8D 15 00000015 R		lea edx, searchString
+ 00000019  52				push edx						; parameter: searchString
+ 0000001A  E8 00000060			call wordLength
+ 0000001F  5A				pop edx							; remove parameter
+					
+ 00000020  8B D0			mov edx, eax					; EDX = string1Length
 
 					; get length of current word
- 00000012  53				push ebx						; push the start of the current word as parameter: inputSentenceAddr
- 00000013  E8 0000004A			call wordLength					; currentWordLength (EAX) = wordLength(inputSentenceAddr)
- 00000018  5B				pop ebx							; clear parameter off the stack
+ 00000022  53				push ebx						; push the start of the current word as parameter: inputSentenceIndex
+ 00000023  E8 00000057			call wordLength					; currentWordLength (EAX) = wordLength(inputSentenceIndex)
+ 00000028  5B				pop ebx							; clear parameter off the stack
+													
+													; EDX = string2Length
+ 00000029  3B C2			cmp eax, edx					; if (string1Length != string2Length), then
+ 0000002B  5A				pop edx							; (before we do anything, we need to restore EDX)
+ 0000002C  75 12			jne wordsAreNotTheSame			; then the words are not the same.
 
 					; compare current word to searchString
- 00000019  8B C8			mov ecx, eax					; repeatCount = currentWordLength
- 0000001B  FC				cld								; set scan direction: left-to-right
- 0000001C  8B F3			mov esi, ebx					; set source index to inputSentenceIndex
- 0000001E  8D 3D 00000014 R		lea edi, searchString			; set destination index to first element of searchString
+ 0000002E  8B C8			mov ecx, eax					; repeatCount = currentWordLength
+ 00000030  FC				cld								; set scan direction: left-to-right
+ 00000031  8B F3			mov esi, ebx					; set source index to inputSentenceIndex
+ 00000033  8D 3D 00000015 R		lea edi, searchString			; set destination index to first element of searchString
 					
 					; repe cmpsb means:
 					; while (ECX != 0)
@@ -84,71 +102,87 @@ main.asm						     Page 1 - 1
 					;	decrement ECX
 					;	if [ESI] and [EDI] are the same, then break loop
 					; end while
- 00000024  F3/ A6			repe cmpsb						; in summary, this will compare the searchString to the current word
+ 00000039  F3/ A6			repe cmpsb						; in summary, this will compare the searchString to the current word
 													; in inputSentence (starting at inputSentenceIndex).
 													; if ECX == 0, that means that the loop did not break early,
 													; which means that the two words are the same.
 					
- 00000026  83 F9 00			cmp ecx, 0						; is ECX 0?
- 00000029  74 0D			je wordsAreTheSame				; if (ECX == 0), then the words are the same
+ 0000003B  83 F9 00			cmp ecx, 0						; is ECX 0?
+ 0000003E  74 13			je wordsAreTheSame				; if (ECX == 0), then the words are the same
 
- 0000002B			wordsAreNotTheSame:
+ 00000040			wordsAreNotTheSame:
 					; if the words are not the same, copy the current word from inputSentence to outputSentence
 
- 0000002B  50				push eax						; parameter 3: length of word to copy
- 0000002C  52				push edx						; parameter 2: outputSentenceIndex (destination)
- 0000002D  53				push ebx						; parameter 1: inputSentenceIndex (source)
+ 00000040  50				push eax						; parameter 3: length of word to copy
+ 00000041  52				push edx						; parameter 2: outputSentenceIndex (destination)
+ 00000042  53				push ebx						; parameter 1: inputSentenceIndex (source)
 
- 0000002E  E8 00000050			call stringCopy					; copy current word into outputSentence
+ 00000043  E8 00000058			call stringCopy					; copy current word into outputSentence
 
- 00000033  5B				pop ebx
- 00000034  5A				pop edx
- 00000035  58				pop eax
+ 00000048  5B				pop ebx
+ 00000049  5A				pop edx
+ 0000004A  58				pop eax
 
- 00000036  EB 18			jmp endWordsAreTheSame
- 00000038			wordsAreTheSame:
+ 0000004B  03 D0			add edx, eax					; outputSentenceIndex += currentWordLength
+ 0000004D  C6 02 20			mov BYTE PTR[edx], ' '			; insert ' ' into outputSentence
+ 00000050  42				inc edx							; skip over space
+
+ 00000051  EB 20			jmp endWordsAreTheSame
+ 00000053			wordsAreTheSame:
 					
 					; if words are the same, copy replaceString into outputSentence
 
 					; but first, we need to get the length of replaceString
 
- 00000038  8D 2D 00000018 R		lea ebp, replaceString			; get address of replaceString
- 0000003E  55				push ebp
- 0000003F  E8 0000001E			call wordLength				; EAX = wordLength(replaceString)
- 00000044  5D				pop ebp
+ 00000053  50				push eax						; save currentWordSize, because we need to keep the length of
+													; source word, for when we increment inputSentenceIndex.
 
- 00000045  50				push eax						; parameter 3: length of word to copy
- 00000046  52				push edx						; parameter 2: outputSentenceIndex (destination)
+ 00000054  8D 2D 00000019 R		lea ebp, replaceString			; get address of replaceString
+ 0000005A  55				push ebp
+ 0000005B  E8 0000001F			call wordLength					; EAX = wordLength(replaceString)
+ 00000060  5D				pop ebp
+
+ 00000061  50				push eax						; parameter 3: length of word to copy
+ 00000062  52				push edx						; parameter 2: outputSentenceIndex (destination)
 					
- 00000047  55				push ebp						; parameter 1: address of replaceString (source)
+ 00000063  55				push ebp						; parameter 1: address of replaceString (source)
 
- 00000048  E8 00000036			call stringCopy					; copy replaceString into outputSentence
+ 00000064  E8 00000037			call stringCopy					; copy replaceString into outputSentence
 
- 0000004D  5D				pop ebp							; pop parameters
- 0000004E  5A				pop edx
- 0000004F  58				pop eax
+ 00000069  5D				pop ebp							; pop parameters
+ 0000006A  5A				pop edx
+ 0000006B  58				pop eax
 
- 00000050			endWordsAreTheSame:
- 00000050  03 D8			add ebx, eax					; inputSentenceIndex += currentWordLength
- 00000052  43				inc ebx							; skip over space
-					
- 00000053  03 D0			add edx, eax					; outputSentenceIndex += currentWordLength
- 00000055  C6 02 20			mov BYTE PTR[edx], ' '			; insert ' ' into outputSentence
- 00000058  42				inc edx							; skip over space
+					; currentWordSize (EAX) still refers to the size of replaceString.
+					; increment outputSentenceIndex (EDX) by that amount (+ 1 for space)
 
- 00000059  EB B2			jmp whileNotAtNull				; loop back
- 0000005B			endWhileNotAtNull:
+ 0000006C  03 D0			add edx, eax					; outputSentenceIndex += currentWordLength
+ 0000006E  C6 02 20			mov BYTE PTR[edx], ' '			; insert ' ' into outputSentence
+ 00000071  42				inc edx							; skip over space
 
- 0000005B  5D				pop ebp							; restore ebp to avoid windows32 bug
+ 00000072  58				pop eax
 
- 0000005C  B8 00000000			mov     eax, 0  ; exit with return code 0
- 00000061  C3				ret
- 00000062			_MainProc ENDP
+					; currentWordSize (EAX) now refers to the size of the current word in inputSentence.
+					; this is necessary because we are still going to increment inputSentenceIndex by that amount
+					; (+ 1 for space)
+
+ 00000073			endWordsAreTheSame:
+ 00000073  03 D8			add ebx, eax					; inputSentenceIndex += currentWordLength
+ 00000075  43				inc ebx							; skip over space
+
+ 00000076  EB 95			jmp whileNotAtNull				; loop back
+ 00000078			endWhileNotAtNull:
+
+ 00000078  5D				pop ebp							; restore ebp to avoid windows32 bug
+
+ 00000079  B8 00000000			mov     eax, 0  ; exit with return code 0
+ 0000007E  C3				ret
+ 0000007F			_MainProc ENDP
 
 
 				; wordLength(stringAddr)
 				; returns the length of a null terminated string
- 00000062			wordLength PROC
+ 0000007F			wordLength PROC
 					
 					; set wordStart to stringAddr
 					; set wordEnd to stringAddr
@@ -160,51 +194,51 @@ main.asm						     Page 1 - 1
 					; ebx = wordStart
 					; ecx = wordEnd
 
- 00000062  55				push ebp						; save registers we're going to use
- 00000063  8B EC			mov ebp, esp					; copy stack index
- 00000065  53				push ebx
- 00000066  51				push ecx
- 00000067  9C				pushfd							; save flag register
+ 0000007F  55				push ebp						; save registers we're going to use
+ 00000080  8B EC			mov ebp, esp					; copy stack index
+ 00000082  53				push ebx
+ 00000083  51				push ecx
+ 00000084  9C				pushfd							; save flag register
 
- 00000068  8B 5D 08			mov ebx, DWORD PTR [ebp + 8]	; move stringAddr into wordStart
- 0000006B  8B CB			mov ecx, ebx					; wordEnd = wordStart
- 0000006D			whileNotWordEnd:						
- 0000006D  80 39 00			cmp BYTE PTR[ecx], 0			; wordEnd == NULL?
- 00000070  74 08			je endWhileNotWordEnd			; if so, end the while loop
- 00000072  80 39 20			cmp BYTE PTR[ecx], ' '			; wordEnd == ' '?
- 00000075  74 03			je endWhileNotWordEnd			; if so, end the while loop
+ 00000085  8B 5D 08			mov ebx, DWORD PTR [ebp + 8]	; move stringAddr into wordStart
+ 00000088  8B CB			mov ecx, ebx					; wordEnd = wordStart
+ 0000008A			whileNotWordEnd:						
+ 0000008A  80 39 00			cmp BYTE PTR[ecx], 0			; wordEnd == NULL?
+ 0000008D  74 08			je endWhileNotWordEnd			; if so, end the while loop
+ 0000008F  80 39 20			cmp BYTE PTR[ecx], ' '			; wordEnd == ' '?
+ 00000092  74 03			je endWhileNotWordEnd			; if so, end the while loop
 
- 00000077  41				inc ecx							; if not, increment wordEnd
- 00000078  EB F3			jmp whileNotWordEnd				; and repeat
- 0000007A			endWhileNotWordEnd:
+ 00000094  41				inc ecx							; if not, increment wordEnd
+ 00000095  EB F3			jmp whileNotWordEnd				; and repeat
+ 00000097			endWhileNotWordEnd:
 					
- 0000007A  2B CB			sub ecx, ebx					; stringLength = wordEnd - wordStart
+ 00000097  2B CB			sub ecx, ebx					; stringLength = wordEnd - wordStart
 					
- 0000007C  8B C1			mov eax, ecx					; move stringLength into EAX for return value
+ 00000099  8B C1			mov eax, ecx					; move stringLength into EAX for return value
 
- 0000007E  9D				popfd							; restore flag register
- 0000007F  59				pop ecx							; restore registers we used
- 00000080  5B				pop ebx
- 00000081  5D				pop ebp
- 00000082  C3				ret
- 00000083			wordLength ENDP
+ 0000009B  9D				popfd							; restore flag register
+ 0000009C  59				pop ecx							; restore registers we used
+ 0000009D  5B				pop ebx
+ 0000009E  5D				pop ebp
+ 0000009F  C3				ret
+ 000000A0			wordLength ENDP
 
 
 				; stringCopy(sourceStringAddr, destStringAddr, lengthToCopy)
 				; copies a string from once place to another
- 00000083			stringCopy PROC
- 00000083  55				push ebp						; save registers we're going to use
- 00000084  8B EC			mov ebp, esp					; copy stack pointer
- 00000086  56				push esi
- 00000087  57				push edi
- 00000088  51				push ecx
- 00000089  9C				pushfd							; save flags register
+ 000000A0			stringCopy PROC
+ 000000A0  55				push ebp						; save registers we're going to use
+ 000000A1  8B EC			mov ebp, esp					; copy stack pointer
+ 000000A3  56				push esi
+ 000000A4  57				push edi
+ 000000A5  51				push ecx
+ 000000A6  9C				pushfd							; save flags register
 
- 0000008A  8B 75 08			mov esi, DWORD PTR[ebp + 8]		; ESI = sourceStringAddr (1st parameter)
- 0000008D  8B 7D 0C			mov edi, DWORD PTR[ebp + 12]	; EDI = destStringAddr (2nd parameter)
- 00000090  8B 4D 10			mov ecx, DWORD PTR[ebp + 16]	; ECX = lengthToCopy (3rd parameter)
+ 000000A7  8B 75 08			mov esi, DWORD PTR[ebp + 8]		; ESI = sourceStringAddr (1st parameter)
+ 000000AA  8B 7D 0C			mov edi, DWORD PTR[ebp + 12]	; EDI = destStringAddr (2nd parameter)
+ 000000AD  8B 4D 10			mov ecx, DWORD PTR[ebp + 16]	; ECX = lengthToCopy (3rd parameter)
 
- 00000093  FC				cld								; set scan direction: left-to-right
+ 000000B0  FC				cld								; set scan direction: left-to-right
 
 					; rep movsb means:
 					; while (ECX != 0)
@@ -213,18 +247,18 @@ main.asm						     Page 1 - 1
 					;	decrement ECX
 					; end while
 
- 00000094  F3/ A4			rep movsb						; in short, copy lengthToCopy bytes from source string to dest. string
+ 000000B1  F3/ A4			rep movsb						; in short, copy lengthToCopy bytes from source string to dest. string
 
- 00000096  9D				popfd							; restore flags register
- 00000097  59				pop ecx							; restore registers we used
- 00000098  5F				pop edi
- 00000099  5E				pop esi
- 0000009A  5D				pop ebp
- 0000009B  C3				ret
- 0000009C			stringCopy ENDP
+ 000000B3  9D				popfd							; restore flags register
+ 000000B4  59				pop ecx							; restore registers we used
+ 000000B5  5F				pop edi
+ 000000B6  5E				pop esi
+ 000000B7  5D				pop ebp
+ 000000B8  C3				ret
+ 000000B9			stringCopy ENDP
 
 				END   ; end of source code
-Microsoft (R) Macro Assembler Version 11.00.61030.0	    11/17/16 19:31:20
+Microsoft (R) Macro Assembler Version 11.00.50727.1	    11/17/16 20:21:30
 main.asm						     Symbols 2 - 1
 
 
@@ -248,24 +282,24 @@ Segments and Groups:
 
 FLAT . . . . . . . . . . . . . .	GROUP
 STACK  . . . . . . . . . . . . .	32 Bit	 00001000 Para	  Stack	  'STACK'	 
-_DATA  . . . . . . . . . . . . .	32 Bit	 00000082 Para	  Public  'DATA'	
-_TEXT  . . . . . . . . . . . . .	32 Bit	 0000009C Para	  Public  'CODE'	
+_DATA  . . . . . . . . . . . . .	32 Bit	 00000083 Para	  Public  'DATA'	
+_TEXT  . . . . . . . . . . . . .	32 Bit	 000000B9 Para	  Public  'CODE'	
 
 
 Procedures, parameters, and locals:
 
                 N a m e                 Type     Value    Attr
 
-_MainProc  . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 00000062 Public
+_MainProc  . . . . . . . . . . .	P Near	 00000000 _TEXT	Length= 0000007F Public
   whileNotAtNull . . . . . . . .	L Near	 0000000D _TEXT	
-  wordsAreNotTheSame . . . . . .	L Near	 0000002B _TEXT	
-  wordsAreTheSame  . . . . . . .	L Near	 00000038 _TEXT	
-  endWordsAreTheSame . . . . . .	L Near	 00000050 _TEXT	
-  endWhileNotAtNull  . . . . . .	L Near	 0000005B _TEXT	
-stringCopy . . . . . . . . . . .	P Near	 00000083 _TEXT	Length= 00000019 Public
-wordLength . . . . . . . . . . .	P Near	 00000062 _TEXT	Length= 00000021 Public
-  whileNotWordEnd  . . . . . . .	L Near	 0000006D _TEXT	
-  endWhileNotWordEnd . . . . . .	L Near	 0000007A _TEXT	
+  wordsAreNotTheSame . . . . . .	L Near	 00000040 _TEXT	
+  wordsAreTheSame  . . . . . . .	L Near	 00000053 _TEXT	
+  endWordsAreTheSame . . . . . .	L Near	 00000073 _TEXT	
+  endWhileNotAtNull  . . . . . .	L Near	 00000078 _TEXT	
+stringCopy . . . . . . . . . . .	P Near	 000000A0 _TEXT	Length= 00000019 Public
+wordLength . . . . . . . . . . .	P Near	 0000007F _TEXT	Length= 00000021 Public
+  whileNotWordEnd  . . . . . . .	L Near	 0000008A _TEXT	
+  endWhileNotWordEnd . . . . . .	L Near	 00000097 _TEXT	
 
 
 Symbols:
@@ -287,9 +321,9 @@ atodproc . . . . . . . . . . . .	L Near	 00000000 FLAT	External
 atowproc . . . . . . . . . . . .	L Near	 00000000 FLAT	External
 dtoaproc . . . . . . . . . . . .	L Near	 00000000 FLAT	External
 inputSentence  . . . . . . . . .	Byte	 00000000 _DATA	
-outputSentence . . . . . . . . .	Byte	 0000001E _DATA	
-replaceString  . . . . . . . . .	Byte	 00000018 _DATA	
-searchString . . . . . . . . . .	Byte	 00000014 _DATA	
+outputSentence . . . . . . . . .	Byte	 0000001F _DATA	
+replaceString  . . . . . . . . .	Byte	 00000019 _DATA	
+searchString . . . . . . . . . .	Byte	 00000015 _DATA	
 wtoaproc . . . . . . . . . . . .	L Near	 00000000 FLAT	External
 
 	   0 Warnings

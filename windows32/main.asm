@@ -16,7 +16,10 @@ INCLUDE io.h   ; header file for input/output
 ; Named memory allocation and initialization
 .DATA
 	
-	inputSentence	BYTE "my don dont do that", 0
+	inputSentence	BYTE "my don dont do that", 0, 0	; this is sort of a hack,
+														; but the first null is always skipped,
+														; so we need an extra one to meet the exit condition
+														; for the whileNotAtNull loop.
 
 	searchString	BYTE "don", 0
 
@@ -52,10 +55,24 @@ whileNotAtNull:
 	cmp BYTE PTR[ebx], 0			; if (inputSentenceIndex == NULL)
 	je endWhileNotAtNull			; then break the loop
 
+	; if the lengths of searchString and the current word are different, they are not equal.
+	push edx						; we need an extra variable. save EDX for later
+	lea edx, searchString
+	push edx						; parameter: searchString
+	call wordLength
+	pop edx							; remove parameter
+	
+	mov edx, eax					; EDX = string1Length
+
 	; get length of current word
-	push ebx						; push the start of the current word as parameter: inputSentenceAddr
-	call wordLength					; currentWordLength (EAX) = wordLength(inputSentenceAddr)
+	push ebx						; push the start of the current word as parameter: inputSentenceIndex
+	call wordLength					; currentWordLength (EAX) = wordLength(inputSentenceIndex)
 	pop ebx							; clear parameter off the stack
+									
+									; EDX = string2Length
+	cmp eax, edx					; if (string1Length != string2Length), then
+	pop edx							; (before we do anything, we need to restore EDX)
+	jne wordsAreNotTheSame			; then the words are not the same.
 
 	; compare current word to searchString
 	mov ecx, eax					; repeatCount = currentWordLength
@@ -91,6 +108,10 @@ wordsAreNotTheSame:
 	pop edx
 	pop eax
 
+	add edx, eax					; outputSentenceIndex += currentWordLength
+	mov BYTE PTR[edx], ' '			; insert ' ' into outputSentence
+	inc edx							; skip over space
+
 	jmp endWordsAreTheSame
 wordsAreTheSame:
 	
@@ -98,7 +119,8 @@ wordsAreTheSame:
 
 	; but first, we need to get the length of replaceString
 
-	; TODO: this stuff push eax						; save value of currentWordLength
+	push eax						; save currentWordSize, because we need to keep the length of
+									; source word, for when we increment inputSentenceIndex.
 
 	lea ebp, replaceString			; get address of replaceString
 	push ebp
@@ -116,13 +138,22 @@ wordsAreTheSame:
 	pop edx
 	pop eax
 
-endWordsAreTheSame:
-	add ebx, eax					; inputSentenceIndex += currentWordLength
-	inc ebx							; skip over space
-	
+	; currentWordSize (EAX) still refers to the size of replaceString.
+	; increment outputSentenceIndex (EDX) by that amount (+ 1 for space)
+
 	add edx, eax					; outputSentenceIndex += currentWordLength
 	mov BYTE PTR[edx], ' '			; insert ' ' into outputSentence
 	inc edx							; skip over space
+
+	pop eax
+
+	; currentWordSize (EAX) now refers to the size of the current word in inputSentence.
+	; this is necessary because we are still going to increment inputSentenceIndex by that amount
+	; (+ 1 for space)
+
+endWordsAreTheSame:
+	add ebx, eax					; inputSentenceIndex += currentWordLength
+	inc ebx							; skip over space
 
 	jmp whileNotAtNull				; loop back
 endWhileNotAtNull:
